@@ -1,6 +1,8 @@
-var express = require('express');
-var router = express.Router();
-var knex = require('../db')
+const express = require('express');
+const router = express.Router();
+const knex = require('../db');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 
 router.post('/signup', function(req, res, next) {
   const errors = []
@@ -21,7 +23,25 @@ router.post('/signup', function(req, res, next) {
       .then(function (result) {
          // {count: "0"}
          if (result.count === "0") {
-
+            const saltRounds = 4;
+            const passwordHash = bcrypt.hashSync(req.body.password, saltRounds);
+          knex('users')
+            .insert({
+              email: req.body.email,
+              name: req.body.name,
+              password_hash: passwordHash
+            })
+            .returning('*')
+            .then(function (users) {
+              const user = users[0];
+              const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET);
+              res.json({
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                token: token
+              })
+            })
          } else {
           res.status(422).json({
             errors: ["Email has already been taken"]
